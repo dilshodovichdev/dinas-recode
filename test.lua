@@ -578,48 +578,97 @@ UISettings:AddButton({
 })
 
 
-local delayTimer = 0
+local TriggerbotSettings = {
+    Enabled = false,
+    Delay = 0.05,
+    TeamCheck = true,
+    HitChance = 100
+}
 
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local VIM = game:GetService("VirtualInputManager")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+local lastTriggerTime = 0
+local lastTarget = nil
+
+local triggerConnection = nil
+
+local function startTriggerbot()
+    if triggerConnection then triggerConnection:Disconnect() end
+    
+    triggerConnection = RunService.Heartbeat:Connect(function()
+        if not TriggerbotSettings.Enabled then return end
+        
+        local target = Mouse.Target
+        if not target then return end
+        
+        local character = target:FindFirstAncestorOfClass("Model")
+        if not character then return end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then return end
+        
+        local targetPlayer = Players:GetPlayerFromCharacter(character)
+        if not targetPlayer then return end
+        if targetPlayer == LocalPlayer then return end
+        
+        -- Hit chance check
+        if math.random(1, 100) > TriggerbotSettings.HitChance then return end
+        
+        local currentTime = tick()
+        if currentTime - lastTriggerTime < TriggerbotSettings.Delay then return end
+        
+        -- Fire
+        VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        task.wait(0.01)
+        VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        
+        lastTriggerTime = currentTime
+        lastTarget = character
+    end)
+end
+
+local function stopTriggerbot()
+    if triggerConnection then
+        triggerConnection:Disconnect()
+        triggerConnection = nil
+    end
+end
+
+-- Triggerbot UI
 Page:Groupbox("Trigger Bot", "Left"):AddToggle({
-    Title = "Trigger Bot",
+    Title = "Enable Triggerbot",
     Default = false,
-    Callback = function(V) 
-        local VIM = game:GetService("VirtualInputManager")
-        local player = game.Players.LocalPlayer
-        local mouse = player:GetMouse()
-
-        local lastTarget
-
-        while true do
-            task.wait()
-
-            local target = mouse.Target
-            if not target then continue end
-
-            local character = target:FindFirstAncestorOfClass("Model")
-            if not character then continue end
-
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if not humanoid then continue end
-
-            if character ~= lastTarget then
-                lastTarget = character
-                delayTimer = game.GetService("RunService").Stepped:wait()
-
-                while game.GetService("RunService").Stepped:wait() - delayTimer < 0.1 do end
-
-                VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                delayTimer = 0
-            end
+    Callback = function(V)
+        TriggerbotSettings.Enabled = V
+        if V then
+            startTriggerbot()
+        else
+            stopTriggerbot()
         end
     end
 })
 
-Page:Groupbox("Trigger Bot Delay", "Left"):AddSlider({
-    Title = "Trigger Bot Delay",
-    Min = 0, Max = 1000, Default = 100,
+Page:Groupbox("Trigger Bot Settings", "Right"):AddSlider({
+    Title = "Delay (seconds)",
+    Min = 0,
+    Max = 0.5,
+    Default = 0.05,
+    Increment = 0.01,
     Callback = function(v)
-        delayTimer = game.GetService("RunService").Stepped:wait()
+        TriggerbotSettings.Delay = v
+    end
+})
+
+Page:Groupbox("Trigger Bot Settings", "Right"):AddSlider({
+    Title = "Hit Chance %",
+    Min = 1,
+    Max = 100,
+    Default = 100,
+    Callback = function(v)
+        TriggerbotSettings.HitChance = v
     end
 })
