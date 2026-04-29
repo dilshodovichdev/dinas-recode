@@ -49,15 +49,28 @@ local Aimbot = {
     ToggleMode      = false,
     TeamCheck       = false,
     VisibleCheck    = false,
+    WallCheck       = true,
     AimPart         = "Head",
     FOV             = 160,
     FOV_Enabled     = false,
     FOV_Color       = Color3.fromRGB(255, 0, 255),
     FOV_LockedColor = Color3.fromRGB(0, 255, 0),
     Smoothness      = 10,
+    SmoothType      = "Linear", -- "Linear", "Expo", "Sine"
     Prediction      = false,
-    PredictionAmount = 0.142
+    PredictionAmount = 0.142,
+    DropPrediction  = false,
+    DropAmount      = 0,
+    MaxDistance     = 1000,
+    Priority        = "FOV", -- "FOV", "Distance", "Health"
+    Deadzone        = 0, -- pixels from center where aimbot won't activate
+    UseMouseLocation = false, -- use mouse pos instead of screen center
+    AutoFire        = false,
+    AutoFireDelay   = 0.05
 }
+
+-- Mobile support
+local isTouchDevice = UserInputService.TouchEnabled
 
 local ESP_Cache = {}
 
@@ -262,56 +275,141 @@ local function UpdateFOV()
 end
 
 local function GetTarget()
-    local closest = nil
-    local bestDist = Aimbot.FOV
-
+    local bestTarget = nil
+    local bestScore = math.huge
+    
+    local aimOrigin = Aimbot.UseMouseLocation and UserInputService:GetMouseLocation() or Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    
     for _, plr in Players:GetPlayers() do
-        if plr == LocalPlayer or not plr.Character or plr.Character:FindFirstChild("Humanoid").Health <= 0 then continue end
+        if plr == LocalPlayer then continue end
+        if not plr.Character then continue end
+        
+        local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then continue end
+        
         if Aimbot.TeamCheck and plr.Team == LocalPlayer.Team then continue end
-
-        local part = plr.Character:FindFirstChild(Aimbot.AimPart) or plr.Character:FindFirstChild("HumanoidRootPart")
-        if not part then continue end
-
-        local pos = part.Position
-        if Aimbot.Prediction then
-            pos = pos + (part.Velocity * Aimbot.PredictionAmount)
+        
+        local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
+        if not rootPart then continue end
+        
+        -- Distance check
+        local playerPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
+        if playerPos then
+            local dist3D = (playerPos - rootPart.Position).Magnitude
+            if dist3D > Aimbot.MaxDistance then continue end
         end
-
+        
+        -- Find best part to aim at
+        local parts = {Aimbot.AimPart, "Head", "HumanoidRootPart", "UpperTorso", "Torso"}
+        local targetPart = nil
+        
+        for _, partName in ipairs(parts) do
+            targetPart = plr.Character:FindFirstChild(partName)
+            if targetPart then break end
+        end
+        
+        if not targetPart then continue end
+        
+        local pos = targetPart.Position
+        
+        -- Prediction with velocity and drop
+        if Aimbot.Prediction then
+            local velocity = targetPart.Velocity
+            pos = pos + (velocity * Aimbot.PredictionAmount)
+            if Aimbot.DropPrediction then
+                pos = pos - Vector3.new(0, Aimbot.DropAmount * (velocity.Magnitude / 100), 0)
+            end
+        end
+        
         local screenPos, onScreen = Camera:WorldToViewportPoint(pos)
         if not onScreen then continue end
-
-        local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-        if dist >= bestDist then continue end
-
-        if Aimbot.VisibleCheck then
+        
+        local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - aimOrigin).Magnitude
+        
+        -- Deadzone check
+        if dist2D < Aimbot.Deadzone then continue end
+        
+        -- FOV check
+        if dist2D > Aimbot.FOV then continue end
+        
+        -- Wall check
+        if Aimbot.WallCheck then
             local rayParams = RaycastParams.new()
-            rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+            rayParams.FilterDescendantsInstances = {LocalPlayer.Character, plr.Character}
             rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-            local result = Workspace:Raycast(Camera.CFrame.Position, pos - Camera.CFrame.Position, rayParams)
-            if result and not result.Instance:IsDescendantOf(plr.Character) then continue end
+            local direction = (pos - Camera.CFrame.Position).Unit * (pos - Camera.CFrame.Position).Magnitude
+            local result = Workspace:Raycast(Camera.CFrame.Position, direction, rayParams)
+            if result then continue end
         end
-
-        bestDist = dist
-        closest = pos
+        
+        -- Priority system
+        local score = dist2D
+        if Aimbot.Priority == "Distance" and playerPos then
+            score = (playerPos - rootPart.Position).Magnitude
+        elseif Aimbot.Priority == "Health" then
+            score = humanoid.Health
+        end
+        
+        if score < bestScore then
+            bestScore = score
+            bestTarget = {Position = pos, Part = targetPart, Player = plr}
+        end
     end
-    return closest
+    
+    return bestTarget
 end
+
+-- Smooth functions
+local SmoothFunctions = {
+    Linear = function(current, target, smooth)
+        return current:Lerp(target, 1 / smooth)
+    end,
+    Expo = function(current, target, smooth)
+        local alpha = 1 - math.exp(-smooth / 10)
+        return current:Lerp(target, alpha)
+    end,
+    Sine = function(current, target, smooth)
+        local alpha = math.sin((1 / smooth) * math.pi / 2)
+        return current:Lerp(target, alpha)
+    end
+}
+
+local lastAutoFire = 0
 
 RunService.Heartbeat:Connect(function()
     UpdateFOV()
-
-    local shouldAim = Aimbot.Enabled and (Aimbot.ToggleMode or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
-
+    
+    local shouldAim = Aimbot.Enabled and (Aimbot.ToggleMode or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) or mobileAiming)
+    
     if not shouldAim then
         Stroke.Color = Aimbot.FOV_Color
         return
     end
-
+    
     local target = GetTarget()
     if target then
         Stroke.Color = Aimbot.FOV_LockedColor
-        local look = CFrame.lookAt(Camera.CFrame.Position, target)
-        Camera.CFrame = Camera.CFrame:Lerp(look, 1 / Aimbot.Smoothness)
+        local look = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+        local smoothFunc = SmoothFunctions[Aimbot.SmoothType] or SmoothFunctions.Linear
+        Camera.CFrame = smoothFunc(Camera.CFrame, look, Aimbot.Smoothness)
+        
+        -- Auto fire
+        if Aimbot.AutoFire then
+            local currentTime = tick()
+            if currentTime - lastAutoFire >= Aimbot.AutoFireDelay then
+                local VIM = game:GetService("VirtualInputManager")
+                if isTouchDevice then
+                    VIM:SendTouchEvent(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2, 0, true, game, 0)
+                    task.wait(0.01)
+                    VIM:SendTouchEvent(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2, 0, false, game, 0)
+                else
+                    VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                    task.wait(0.01)
+                    VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                end
+                lastAutoFire = currentTime
+            end
+        end
     else
         Stroke.Color = Aimbot.FOV_Color
     end
@@ -381,9 +479,37 @@ Page:Groupbox("Aimbot Control", "Left"):AddDropdown({
 })
 
 Page:Groupbox("Checks", "Left"):AddToggle({
-    Title = "Visible Check (Wall Check)",
-    Default = false,
-    Callback = function(v) Aimbot.VisibleCheck = v end
+    Title = "Wall Check",
+    Default = true,
+    Callback = function(v) Aimbot.WallCheck = v end
+})
+
+Page:Groupbox("Checks", "Left"):AddSlider({
+    Title = "Max Distance",
+    Min = 50, Max = 5000, Default = 1000,
+    Suffix = " studs",
+    Callback = function(v) Aimbot.MaxDistance = v end
+})
+
+Page:Groupbox("Advanced", "Right"):AddDropdown({
+    Title = "Target Priority",
+    Values = {"FOV", "Distance", "Health"},
+    Default = "FOV",
+    Callback = function(v) Aimbot.Priority = v end
+})
+
+Page:Groupbox("Advanced", "Right"):AddDropdown({
+    Title = "Smooth Type",
+    Values = {"Linear", "Expo", "Sine"},
+    Default = "Linear",
+    Callback = function(v) Aimbot.SmoothType = v end
+})
+
+Page:Groupbox("Advanced", "Right"):AddSlider({
+    Title = "Deadzone",
+    Min = 0, Max = 50, Default = 0,
+    Suffix = " px",
+    Callback = function(v) Aimbot.Deadzone = v end
 })
 
 -- FOV настройки
