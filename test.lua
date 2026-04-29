@@ -588,8 +588,12 @@ local TriggerbotSettings = {
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
+
+-- Platform check - disable triggerbot on mobile
+local isMobile = UserInputService.TouchEnabled or UserInputService.GyroscopeEnabled
 
 local lastTriggerTime = 0
 local lastTarget = nil
@@ -597,6 +601,11 @@ local lastTarget = nil
 local triggerConnection = nil
 
 local function startTriggerbot()
+    if isMobile then
+        warn("[Triggerbot] Not supported on mobile devices!")
+        return
+    end
+    
     if triggerConnection then triggerConnection:Disconnect() end
     
     triggerConnection = RunService.Heartbeat:Connect(function()
