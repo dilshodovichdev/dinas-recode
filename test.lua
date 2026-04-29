@@ -601,17 +601,28 @@ local lastTarget = nil
 local triggerConnection = nil
 
 local function startTriggerbot()
-    if isMobile then
-        warn("[Triggerbot] Not supported on mobile devices!")
-        return
-    end
-    
     if triggerConnection then triggerConnection:Disconnect() end
     
     triggerConnection = RunService.Heartbeat:Connect(function()
         if not TriggerbotSettings.Enabled then return end
         
-        local target = Mouse.Target
+        local target = nil
+        
+        if isMobile then
+            -- Mobile: use center screen raycast
+            local ray = Camera:ViewportPointToRay(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            local rayParams = RaycastParams.new()
+            rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+            rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+            local result = game:GetService("Workspace"):Raycast(ray.Origin, ray.Direction * 1000, rayParams)
+            if result then
+                target = result.Instance
+            end
+        else
+            -- PC: use mouse target
+            target = Mouse.Target
+        end
+        
         if not target then return end
         
         local character = target:FindFirstAncestorOfClass("Model")
@@ -631,9 +642,17 @@ local function startTriggerbot()
         if currentTime - lastTriggerTime < TriggerbotSettings.Delay then return end
         
         -- Fire
-        VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-        task.wait(0.01)
-        VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        if isMobile then
+            -- Mobile: use touch tap
+            VIM:SendTouchEvent(0, 0, 0, true, game, 0)
+            task.wait(0.01)
+            VIM:SendTouchEvent(0, 0, 0, false, game, 0)
+        else
+            -- PC: use mouse click
+            VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            task.wait(0.01)
+            VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        end
         
         lastTriggerTime = currentTime
         lastTarget = character
