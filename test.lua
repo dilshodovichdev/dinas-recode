@@ -644,7 +644,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 Library:Watermark("BloxSense Release")
-local Window = Library:Window("BloxSense PROJECT")
+local Window = Library:Window("BloxSense")
 
 Window:Section("Main")
 
