@@ -467,12 +467,22 @@ local function GetTarget()
         end
         
         -- Find best part to aim at
-        local parts = {Aimbot.AimPart, "Head", "HumanoidRootPart", "UpperTorso", "Torso"}
+        local parts = {Aimbot.AimPart, "Head", "HumanoidRootPart", "UpperTorso", "Torso", "LowerTorso"}
         local targetPart = nil
         
         for _, partName in ipairs(parts) do
             targetPart = model:FindFirstChild(partName)
             if targetPart then break end
+        end
+        
+        -- Try any part of the model as last resort
+        if not targetPart then
+            for _, part in ipairs(model:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    targetPart = part
+                    break
+                end
+            end
         end
         
         if not targetPart then return nil end
@@ -523,8 +533,13 @@ local function GetTarget()
     -- Check all players first
     for _, plr in Players:GetPlayers() do
         if plr == LocalPlayer then continue end
-        if not plr.Character then continue end  -- Skip if no character
-        local target = checkModel(plr.Character, true)
+        
+        local char = plr.Character
+        if not char then 
+            continue  -- Skip if no character
+        end
+        
+        local target = checkModel(char, true)
         if target and target.Score < bestScore then
             bestScore = target.Score
             bestTarget = target
@@ -826,6 +841,7 @@ MiscGroup:AddToggle({
 
 -- Hit/Kill tracking system
 local HealthCache = {}
+local RecentHits = {} -- Track who we damaged recently
 
 RunService.Heartbeat:Connect(function()
     for _, plr in Players:GetPlayers() do
@@ -852,6 +868,9 @@ RunService.Heartbeat:Connect(function()
             
             -- Hit detected (health decreased but not dead)
             if damage > 0 and currentHealth > 0 then
+                -- Track this hit for kill confirmation
+                RecentHits[plr] = tick()
+                
                 if MiscSettings.HitNotif then
                     local msg = "Hitted " .. plr.Name
                     if MiscSettings.ShowDamage then
@@ -864,13 +883,26 @@ RunService.Heartbeat:Connect(function()
             
             -- Kill detected (health dropped to 0 or below)
             if currentHealth <= 0 and prevHealth > 0 then
-                if MiscSettings.KillNotif then
+                -- Only show if we hit them in last 5 seconds (our kill)
+                local lastHit = RecentHits[plr]
+                local isOurKill = lastHit and (tick() - lastHit < 5)
+                
+                if MiscSettings.KillNotif and isOurKill then
                     local msg = "Killed " .. plr.Name
                     if MiscSettings.ShowDamage then
                         msg = msg .. " ( dealt " .. math.floor(prevHealth) .. " damage )"
                     end
                     Library:Notify("Kill", msg, 3)
                 end
+                
+                RecentHits[plr] = nil -- Clear hit tracking
+            end
+        end
+        
+        -- Clear old hits
+        for p, time in pairs(RecentHits) do
+            if tick() - time > 10 then
+                RecentHits[p] = nil
             end
         end
         
