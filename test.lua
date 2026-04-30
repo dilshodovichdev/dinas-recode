@@ -22,6 +22,7 @@ local Camera = Workspace.CurrentCamera
 
 local ESP_Settings = {
     Enabled = false,
+    ShowNPCs = false, -- show all models with Humanoid
     LimitDistance = 2000,
     TeamCheck = false,
     TextSize = 13,
@@ -50,6 +51,7 @@ local Aimbot = {
     TeamCheck       = false,
     VisibleCheck    = false,
     WallCheck       = true,
+    TargetNPCs      = false, -- aim at all models with Humanoid
     AimPart         = "Head",
     FOV             = 160,
     FOV_Enabled     = false,
@@ -239,6 +241,129 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- NPC ESP System
+local NPC_Cache = {}
+local NPC_ESPObjects = {}
+
+local function CreateNPCEsp(model)
+    if NPC_ESPObjects[model] then return end
+    
+    local Objects = {
+        Box = NewDrawing("Square", {Thickness = 1, ZIndex = 2, Visible = false}),
+        BoxOutline = NewDrawing("Square", {Thickness = 3, Color = Color3.new(0,0,0), ZIndex = 1, Visible = false}),
+        BoxFill = NewDrawing("Square", {Filled = true, ZIndex = 0, Visible = false}),
+        Name = NewDrawing("Text", {Text = model.Name, Center = true, Size = ESP_Settings.TextSize, Font = ESP_Settings.Font, Outline = true, ZIndex = 3, Visible = false}),
+        Distance = NewDrawing("Text", {Center = true, Size = ESP_Settings.TextSize - 1, Font = ESP_Settings.Font, Outline = true, ZIndex = 3, Visible = false}),
+        HealthBar = NewDrawing("Square", {Filled = true, ZIndex = 2, Visible = false}),
+        HealthBarOutline = NewDrawing("Square", {Filled = true, Color = Color3.new(0,0,0), ZIndex = 1, Visible = false}),
+        Highlight = nil
+    }
+    
+    NPC_ESPObjects[model] = Objects
+end
+
+local function RemoveNPCEsp(model)
+    if NPC_ESPObjects[model] then
+        for k, v in pairs(NPC_ESPObjects[model]) do
+            if k == "Highlight" and v then 
+                v:Destroy()
+            elseif v and v.Remove then 
+                v:Remove() 
+            end
+        end
+        NPC_ESPObjects[model] = nil
+    end
+end
+
+-- NPC ESP Render
+RunService.RenderStepped:Connect(function()
+    if not ESP_Settings.Enabled or not ESP_Settings.ShowNPCs then
+        for model, Objects in pairs(NPC_ESPObjects) do
+            for k, v in pairs(Objects) do
+                if k == "Highlight" and v then v:Destroy()
+                elseif v and v.Remove then v:Remove() end
+            end
+        end
+        NPC_ESPObjects = {}
+        return
+    end
+    
+    -- Find all NPCs
+    for _, model in ipairs(Workspace:GetDescendants()) do
+        if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
+            -- Skip player characters
+            if Players:GetPlayerFromCharacter(model) then continue end
+            if model == LocalPlayer.Character then continue end
+            
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+            local rootPart = model:FindFirstChild("HumanoidRootPart")
+            
+            if humanoid and rootPart and humanoid.Health > 0 then
+                if not NPC_ESPObjects[model] then
+                    CreateNPCEsp(model)
+                end
+                
+                local Objects = NPC_ESPObjects[model]
+                local HRP_Pos, OnScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                local playerPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local Dist = playerPos and (playerPos.Position - rootPart.Position).Magnitude or 0
+                
+                if ESP_Settings.Chams.Enabled then
+                    if not Objects.Highlight or Objects.Highlight.Parent ~= model then
+                        if Objects.Highlight then Objects.Highlight:Destroy() end
+                        local HL = Instance.new("Highlight")
+                        HL.Parent = model; HL.Adornee = model; HL.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        Objects.Highlight = HL
+                    end
+                    local HL = Objects.Highlight
+                    HL.FillColor = Color3.fromRGB(255, 165, 0) -- Orange for NPCs
+                    HL.OutlineColor = ESP_Settings.Chams.OutlineColor
+                    HL.FillTransparency = ESP_Settings.Chams.FillTransparency
+                    HL.OutlineTransparency = ESP_Settings.Chams.OutlineTransparency
+                    HL.Enabled = true
+                else
+                    if Objects.Highlight then Objects.Highlight:Destroy() Objects.Highlight = nil end
+                end
+                
+                if OnScreen and Dist <= ESP_Settings.LimitDistance then
+                    local ScaleFactor = 1 / (HRP_Pos.Z * math.tan(math.rad(Camera.FieldOfView * 0.5)) * 2) * 1000
+                    local Width, Height = math.floor(4 * ScaleFactor), math.floor(6 * ScaleFactor)
+                    local BoxPos = Vector2.new(math.floor(HRP_Pos.X - Width * 0.5), math.floor(HRP_Pos.Y - Height * 0.5))
+                    
+                    if ESP_Settings.Box.Enabled then
+                        Objects.Box.Size = Vector2.new(Width, Height); Objects.Box.Position = BoxPos; Objects.Box.Color = Color3.fromRGB(255, 165, 0); Objects.Box.Visible = true
+                        Objects.BoxOutline.Size = Vector2.new(Width, Height); Objects.BoxOutline.Position = BoxPos; Objects.BoxOutline.Visible = true
+                    else Objects.Box.Visible = false; Objects.BoxOutline.Visible = false end
+                    
+                    if ESP_Settings.BoxFill.Enabled and ESP_Settings.Box.Enabled then
+                        Objects.BoxFill.Size = Vector2.new(Width, Height); Objects.BoxFill.Position = BoxPos; Objects.BoxFill.Color = Color3.fromRGB(255, 165, 0); Objects.BoxFill.Transparency = ESP_Settings.BoxFill.Transparency; Objects.BoxFill.Visible = true
+                    else Objects.BoxFill.Visible = false end
+                    
+                    if ESP_Settings.Name.Enabled then
+                        Objects.Name.Position = Vector2.new(BoxPos.X + Width / 2, BoxPos.Y - Objects.Name.TextBounds.Y - 2); Objects.Name.Color = Color3.fromRGB(255, 165, 0); Objects.Name.Visible = true
+                    else Objects.Name.Visible = false end
+                    
+                    if ESP_Settings.Distance.Enabled then
+                        Objects.Distance.Text = math.floor(Dist) .. "m"; Objects.Distance.Position = Vector2.new(BoxPos.X + Width / 2, BoxPos.Y + Height + 2); Objects.Distance.Color = Color3.fromRGB(255, 165, 0); Objects.Distance.Visible = true
+                    else Objects.Distance.Visible = false end
+                    
+                    if ESP_Settings.HealthBar.Enabled then
+                        local BarWidth = 2; local HealthY = Height * (humanoid.Health / humanoid.MaxHealth)
+                        Objects.HealthBarOutline.Size = Vector2.new(BarWidth + 2, Height + 2); Objects.HealthBarOutline.Position = Vector2.new(BoxPos.X - BarWidth - 6, BoxPos.Y - 1); Objects.HealthBarOutline.Visible = true
+                        Objects.HealthBar.Size = Vector2.new(BarWidth, HealthY); Objects.HealthBar.Position = Vector2.new(BoxPos.X - BarWidth - 5, BoxPos.Y + (Height - HealthY)); Objects.HealthBar.Color = Color3.fromHSV((humanoid.Health / humanoid.MaxHealth) * 0.3, 1, 1); Objects.HealthBar.Visible = true
+                    else Objects.HealthBar.Visible = false; Objects.HealthBarOutline.Visible = false end
+                else
+                    for k, v in pairs(Objects) do 
+                        if typeof(v) ~= "Instance" and v.Remove then v.Visible = false end 
+                    end
+                end
+            else
+                RemoveNPCEsp(model)
+            end
+        end
+    end
+end)
+
 Players.PlayerAdded:Connect(CreateESP)
 Players.PlayerRemoving:Connect(RemoveESP)
 for _, Plr in ipairs(Players:GetPlayers()) do if Plr ~= LocalPlayer then CreateESP(Plr) end end
@@ -280,23 +405,28 @@ local function GetTarget()
     
     local aimOrigin = Aimbot.UseMouseLocation and UserInputService:GetMouseLocation() or Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
     
-    for _, plr in Players:GetPlayers() do
-        if plr == LocalPlayer then continue end
-        if not plr.Character then continue end
+    -- Helper function to check if model is valid target
+    local function checkModel(model, isPlayer)
+        if not model then return nil end
+        if model == LocalPlayer.Character then return nil end
         
-        local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then continue end
+        local humanoid = model:FindFirstChildOfClass("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then return nil end
         
-        if Aimbot.TeamCheck and plr.Team == LocalPlayer.Team then continue end
+        local rootPart = model:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return nil end
         
-        local rootPart = plr.Character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then continue end
+        -- Team check for players only
+        if isPlayer and Aimbot.TeamCheck then
+            local player = Players:GetPlayerFromCharacter(model)
+            if player and player.Team == LocalPlayer.Team then return nil end
+        end
         
         -- Distance check
         local playerPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
         if playerPos then
             local dist3D = (playerPos - rootPart.Position).Magnitude
-            if dist3D > Aimbot.MaxDistance then continue end
+            if dist3D > Aimbot.MaxDistance then return nil end
         end
         
         -- Find best part to aim at
@@ -304,11 +434,11 @@ local function GetTarget()
         local targetPart = nil
         
         for _, partName in ipairs(parts) do
-            targetPart = plr.Character:FindFirstChild(partName)
+            targetPart = model:FindFirstChild(partName)
             if targetPart then break end
         end
         
-        if not targetPart then continue end
+        if not targetPart then return nil end
         
         local pos = targetPart.Position
         
@@ -322,24 +452,24 @@ local function GetTarget()
         end
         
         local screenPos, onScreen = Camera:WorldToViewportPoint(pos)
-        if not onScreen then continue end
+        if not onScreen then return nil end
         
         local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - aimOrigin).Magnitude
         
         -- Deadzone check
-        if dist2D < Aimbot.Deadzone then continue end
+        if dist2D < Aimbot.Deadzone then return nil end
         
         -- FOV check
-        if dist2D > Aimbot.FOV then continue end
+        if dist2D > Aimbot.FOV then return nil end
         
         -- Wall check
         if Aimbot.WallCheck then
             local rayParams = RaycastParams.new()
-            rayParams.FilterDescendantsInstances = {LocalPlayer.Character, plr.Character}
+            rayParams.FilterDescendantsInstances = {LocalPlayer.Character, model}
             rayParams.FilterType = Enum.RaycastFilterType.Blacklist
             local direction = (pos - Camera.CFrame.Position).Unit * (pos - Camera.CFrame.Position).Magnitude
             local result = Workspace:Raycast(Camera.CFrame.Position, direction, rayParams)
-            if result then continue end
+            if result then return nil end
         end
         
         -- Priority system
@@ -350,9 +480,33 @@ local function GetTarget()
             score = humanoid.Health
         end
         
-        if score < bestScore then
-            bestScore = score
-            bestTarget = {Position = pos, Part = targetPart, Player = plr}
+        return {Position = pos, Part = targetPart, Model = model, Score = score, Humanoid = humanoid}
+    end
+    
+    -- Check all players first
+    for _, plr in Players:GetPlayers() do
+        if plr == LocalPlayer then continue end
+        local target = checkModel(plr.Character, true)
+        if target and target.Score < bestScore then
+            bestScore = target.Score
+            bestTarget = target
+        end
+    end
+    
+    -- Check NPCs if enabled
+    if Aimbot.TargetNPCs then
+        for _, model in ipairs(Workspace:GetDescendants()) do
+            if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
+                -- Skip if it's a player character
+                local isPlayerChar = Players:GetPlayerFromCharacter(model) ~= nil
+                if not isPlayerChar then
+                    local target = checkModel(model, false)
+                    if target and target.Score < bestScore then
+                        bestScore = target.Score
+                        bestTarget = target
+                    end
+                end
+            end
         end
     end
     
@@ -449,6 +603,8 @@ EspSettingsGroup:AddToggle({ Title = "Box Fill", Default = false, Callback = fun
 EspSettingsGroup:AddColorPicker({ Title = "Fill Color", Default = ESP_Settings.BoxFill.Color, Callback = function(V) ESP_Settings.BoxFill.Color = V end })
 EspSettingsGroup:AddSlider({ Title = "Max Distance", Min = 100, Max = 5000, Default = 2000, Suffix = " studs", Callback = function(V) ESP_Settings.LimitDistance = V end })
 
+EspSettingsGroup:AddToggle({ Title = "Show NPCs/Bots", Default = false, Description = "ESP all Humanoids", Callback = function(V) ESP_Settings.ShowNPCs = V end })
+
 local ChamsGroup = ChamsPage:Groupbox("Chams", "Left")
 ChamsGroup:AddToggle({ Title = "Enable Chams", Default = false, Callback = function(V) ESP_Settings.Chams.Enabled = V end })
 ChamsGroup:AddColorPicker({ Title = "Fill Color", Default = ESP_Settings.Chams.FillColor, Callback = function(V) ESP_Settings.Chams.FillColor = V end })
@@ -489,6 +645,13 @@ Page:Groupbox("Checks", "Left"):AddSlider({
     Min = 50, Max = 5000, Default = 1000,
     Suffix = " studs",
     Callback = function(v) Aimbot.MaxDistance = v end
+})
+
+Page:Groupbox("Checks", "Left"):AddToggle({
+    Title = "Target NPCs/Bots",
+    Default = false,
+    Description = "Aim at all Humanoids",
+    Callback = function(v) Aimbot.TargetNPCs = v end
 })
 
 Page:Groupbox("Advanced", "Right"):AddDropdown({
@@ -685,7 +848,7 @@ UISettings:AddToggle({
 })
 UISettings:AddTextbox({
     Title = "Watermark Text",
-    Default = "RedOnyx V17",
+    Default = "BloxSense",
     Placeholder = "Enter text...",
     ClearOnFocus = false,
     Callback = function(Value)
@@ -696,7 +859,7 @@ UISettings:AddTextbox({
 UISettings:AddButton({
     Title = "Unload / Destroy UI",
     Callback = function()
-        local gui = game:GetService("CoreGui"):FindFirstChild("RedOnyxV17")
+        local gui = game:GetService("CoreGui"):FindFirstChild("BloxSense")
         local water = game:GetService("CoreGui"):FindFirstChild("Watermark")
         if gui then gui:Destroy() end
         if water then water:Destroy() end
