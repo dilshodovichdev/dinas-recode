@@ -644,7 +644,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 Library:Watermark("BloxSense Release")
-local Window = Library:Window("BloxSense")
+local Window = Library:Window("BloxSense PROJECT")
 
 Window:Section("Main")
 
@@ -791,6 +791,92 @@ Page:Groupbox("Smoothness", "Left"):AddSlider({
     Callback = function(v) Aimbot.Smoothness = v end
 })
 
+-- // MISC TAB //
+Window:Section("Misc")
+local MiscTab = Window:Tab("Misc")
+local MiscPage = MiscTab:SubTab("Main")
+
+local MiscSettings = {
+    HitNotif = false,
+    KillNotif = false,
+    ShowDamage = true
+}
+
+local MiscGroup = MiscPage:Groupbox("Notifications", "Left")
+MiscGroup:AddToggle({
+    Title = "Hit Notification",
+    Default = false,
+    Description = "Show hit notifications",
+    Callback = function(v) MiscSettings.HitNotif = v end
+})
+
+MiscGroup:AddToggle({
+    Title = "Kill Notification",
+    Default = false,
+    Description = "Show kill notifications",
+    Callback = function(v) MiscSettings.KillNotif = v end
+})
+
+MiscGroup:AddToggle({
+    Title = "Show Damage Amount",
+    Default = true,
+    Description = "Show damage dealt in notifications",
+    Callback = function(v) MiscSettings.ShowDamage = v end
+})
+
+-- Hit/Kill tracking system
+local HealthCache = {}
+
+RunService.Heartbeat:Connect(function()
+    for _, plr in Players:GetPlayers() do
+        if plr == LocalPlayer then continue end
+        
+        local char = plr.Character
+        if not char then 
+            HealthCache[plr] = nil
+            continue 
+        end
+        
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid then 
+            HealthCache[plr] = nil
+            continue 
+        end
+        
+        local currentHealth = humanoid.Health
+        local maxHealth = humanoid.MaxHealth
+        
+        if HealthCache[plr] then
+            local prevHealth = HealthCache[plr]
+            local damage = prevHealth - currentHealth
+            
+            -- Hit detected (health decreased but not dead)
+            if damage > 0 and currentHealth > 0 then
+                if MiscSettings.HitNotif then
+                    local msg = "Hitted " .. plr.Name
+                    if MiscSettings.ShowDamage then
+                        msg = msg .. " (-" .. math.floor(damage) .. " HP)"
+                    end
+                    msg = msg .. " [" .. math.floor(currentHealth) .. "/" .. math.floor(maxHealth) .. " HP]"
+                    Library:Notify("Hit", msg, 2)
+                end
+            end
+            
+            -- Kill detected (health dropped to 0 or below)
+            if currentHealth <= 0 and prevHealth > 0 then
+                if MiscSettings.KillNotif then
+                    local msg = "Killed " .. plr.Name
+                    if MiscSettings.ShowDamage then
+                        msg = msg .. " ( dealt " .. math.floor(prevHealth) .. " damage )"
+                    end
+                    Library:Notify("Kill", msg, 3)
+                end
+            end
+        end
+        
+        HealthCache[plr] = currentHealth
+    end
+end)
 
 -- // 3. SETTINGS TAB //
 Window:Section("System")
