@@ -1186,3 +1186,11 @@ Page:Groupbox("Trigger Bot Settings", "Right"):AddSlider({
         TriggerbotSettings.HitChance = v
     end
 })
+
+Page:Groupbox("Trigger Bot Settings", "Right"):AddToggle({
+    Title = "Team Check",
+    Default = true,
+    Callback = function(v)
+        TriggerbotSettings.TeamCheck = v
+    end
+})
