@@ -776,7 +776,7 @@ Page:Groupbox("FOV Settings", "Right"):AddToggle({
 
 Page:Groupbox("FOV Settings", "Right"):AddSlider({
     Title = "FOV Size",
-    Min = 10, Max = 600, Default = 160,
+    Min = 1, Max = 1000, Default = 160,
     Callback = function(v)
         Aimbot.FOV = v
         UpdateFOV()
@@ -837,6 +837,52 @@ MiscGroup:AddToggle({
     Default = true,
     Description = "Show damage dealt in notifications",
     Callback = function(v) MiscSettings.ShowDamage = v end
+})
+
+local AntiAimGroup = MiscPage:Groupbox("Anti Aim", "Right")
+AntiAimGroup:AddToggle({
+    Title = "Enable Anti Aim",
+    Default = false,
+    Description = "Spin character to desync hitbox",
+    Callback = function(v) MiscSettings.AntiAim = v end
+})
+
+AntiAimGroup:AddDropdown({
+    Title = "Yaw Mode",
+    Values = {"Target", "Random", "Dynamic"},
+    Default = "Random",
+    Callback = function(v) MiscSettings.AntiAimYaw = v end
+})
+
+AntiAimGroup:AddToggle({
+    Title = "360° Triggerbot",
+    Default = false,
+    Description = "Shoot in all directions with Anti Aim",
+    Callback = function(v) MiscSettings.AntiAim360 = v end
+})
+
+local ThirdPersonGroup = MiscPage:Groupbox("Third Person", "Right")
+ThirdPersonGroup:AddToggle({
+    Title = "Enable Third Person",
+    Default = false,
+    Description = "Switch to 3rd person view",
+    Callback = function(v) MiscSettings.ThirdPerson = v end
+})
+
+ThirdPersonGroup:AddSlider({
+    Title = "Camera Distance",
+    Min = 5, Max = 30, Default = 10,
+    Suffix = " studs",
+    Callback = function(v) MiscSettings.ThirdPersonDistance = v end
+})
+
+ThirdPersonGroup:AddKeybind({
+    Title = "Toggle Bind",
+    Default = Enum.KeyCode.V,
+    Callback = function()
+        MiscSettings.ThirdPerson = not MiscSettings.ThirdPerson
+        Library:Notify("Third Person", MiscSettings.ThirdPerson and "Enabled" or "Disabled", 1)
+    end
 })
 
 -- Hit/Kill tracking system
@@ -907,6 +953,84 @@ RunService.Heartbeat:Connect(function()
         end
         
         HealthCache[plr] = currentHealth
+    end
+end)
+
+-- Anti Aim Logic
+local lastAntiAimUpdate = 0
+local antiAimAngle = 0
+
+RunService.Heartbeat:Connect(function()
+    -- Third Person Logic
+    if MiscSettings.ThirdPerson then
+        LocalPlayer.CameraMode = Enum.CameraMode.Classic
+        local char = LocalPlayer.Character
+        if char then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local offset = CFrame.new(0, 2, MiscSettings.ThirdPersonDistance)
+                Camera.CFrame = CFrame.lookAt(hrp.Position + offset.Position, hrp.Position)
+            end
+        end
+    end
+    
+    -- Anti Aim Logic (only when not in first person)
+    if MiscSettings.AntiAim and not MiscSettings.ThirdPerson then
+        local char = LocalPlayer.Character
+        if not char then return end
+        
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        
+        local now = tick()
+        if now - lastAntiAimUpdate < 0.05 then return end -- 20Hz update
+        lastAntiAimUpdate = now
+        
+        local targetAngle = 0
+        
+        if MiscSettings.AntiAimYaw == "Random" then
+            -- Random spin
+            antiAimAngle = antiAimAngle + math.random(-180, 180)
+            targetAngle = antiAimAngle
+        elseif MiscSettings.AntiAimYaw == "Target" then
+            -- Face nearest enemy
+            local nearest = nil
+            local minDist = math.huge
+            for _, plr in Players:GetPlayers() do
+                if plr ~= LocalPlayer then
+                    local pChar = plr.Character
+                    if pChar then
+                        local pHrp = pChar:FindFirstChild("HumanoidRootPart")
+                        if pHrp then
+                            local dist = (pHrp.Position - hrp.Position).Magnitude
+                            if dist < minDist then
+                                minDist = dist
+                                nearest = pHrp.Position
+                            end
+                        end
+                    end
+                end
+            end
+            if nearest then
+                local look = CFrame.lookAt(hrp.Position, nearest)
+                targetAngle = math.deg(math.atan2(look.LookVector.X, look.LookVector.Z))
+                antiAimAngle = targetAngle
+            end
+        elseif MiscSettings.AntiAimYaw == "Dynamic" then
+            -- Switch between modes every 0.5s
+            if math.floor(now * 2) % 2 == 0 then
+                antiAimAngle = antiAimAngle + math.random(-90, 90)
+                targetAngle = antiAimAngle
+            else
+                -- Briefly face forward
+                targetAngle = 0
+            end
+        end
+        
+        -- Apply rotation (only to character, not camera)
+        local currentCF = hrp.CFrame
+        local newCF = CFrame.new(currentCF.Position) * CFrame.Angles(0, math.rad(targetAngle), 0)
+        hrp.CFrame = newCF
     end
 end)
 
@@ -1088,38 +1212,88 @@ local function startTriggerbot()
         if not TriggerbotSettings.Enabled then return end
         
         local target = nil
+        local canShoot = false
         
-        if isMobile then
-            -- Mobile: use center screen raycast
-            local ray = Camera:ViewportPointToRay(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-            local rayParams = RaycastParams.new()
-            rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
-            rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-            local result = game:GetService("Workspace"):Raycast(ray.Origin, ray.Direction * 1000, rayParams)
-            if result then
-                target = result.Instance
+        -- 360° Triggerbot with Anti Aim - shoot in all directions
+        if MiscSettings.AntiAim360 and MiscSettings.AntiAim then
+            local char = LocalPlayer.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    -- Raycast in all 8 directions around player
+                    local directions = {
+                        Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0),
+                        Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
+                        Vector3.new(0.7, 0, 0.7), Vector3.new(-0.7, 0, 0.7),
+                        Vector3.new(0.7, 0, -0.7), Vector3.new(-0.7, 0, -0.7)
+                    }
+                    
+                    for _, dir in ipairs(directions) do
+                        local rayParams = RaycastParams.new()
+                        rayParams.FilterDescendantsInstances = {char}
+                        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                        local result = Workspace:Raycast(hrp.Position, dir * 50, rayParams)
+                        
+                        if result then
+                            local hitChar = result.Instance:FindFirstAncestorOfClass("Model")
+                            if hitChar then
+                                local hitHuman = hitChar:FindFirstChildOfClass("Humanoid")
+                                if hitHuman and hitHuman.Health > 0 then
+                                    local hitPlayer = Players:GetPlayerFromCharacter(hitChar)
+                                    if not hitPlayer then
+                                        -- NPC - shoot
+                                        canShoot = true
+                                        break
+                                    elseif hitPlayer ~= LocalPlayer then
+                                        if not TriggerbotSettings.TeamCheck or hitPlayer.Team ~= LocalPlayer.Team then
+                                            -- Enemy player - shoot
+                                            canShoot = true
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
             end
         else
-            -- PC: use mouse target
-            target = Mouse.Target
+            -- Normal triggerbot - use mouse/center screen
+            if isMobile then
+                local ray = Camera:ViewportPointToRay(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                local result = game:GetService("Workspace"):Raycast(ray.Origin, ray.Direction * 1000, rayParams)
+                if result then
+                    target = result.Instance
+                end
+            else
+                target = Mouse.Target
+            end
+            
+            if target then
+                local character = target:FindFirstAncestorOfClass("Model")
+                if character then
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        local targetPlayer = Players:GetPlayerFromCharacter(character)
+                        if targetPlayer then
+                            if targetPlayer ~= LocalPlayer then
+                                if not TriggerbotSettings.TeamCheck or targetPlayer.Team ~= LocalPlayer.Team then
+                                    canShoot = true
+                                end
+                            end
+                        else
+                            -- NPC
+                            canShoot = true
+                        end
+                    end
+                end
+            end
         end
         
-        if not target then return end
-        
-        local character = target:FindFirstAncestorOfClass("Model")
-        if not character then return end
-        
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then return end
-        
-        local targetPlayer = Players:GetPlayerFromCharacter(character)
-        
-        -- Allow NPCs (no player attached) or other players
-        if targetPlayer then
-            if targetPlayer == LocalPlayer then return end
-            if TriggerbotSettings.TeamCheck and targetPlayer.Team == LocalPlayer.Team then return end
-        end
-        -- If no targetPlayer, it's an NPC - continue with shooting
+        if not canShoot then return end
         
         -- Hit chance check
         if math.random(1, 100) > TriggerbotSettings.HitChance then return end
