@@ -2,60 +2,6 @@
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
 
-local _ejp9lfp72 = function()
-    local Players = game:GetService((function()
-        local a={1077,1441,1298,1610,1350,1519,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)())
-local StarterGui = game:GetService((function()
-        local a={1116,1545,1298,1519,1545,1350,1519,960,1558,1402};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)())
-
-local _11esn023w = function()
-    local Players = game:GetService((function()
-        local a={1077,1441,1298,1610,1350,1519,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)())
-local StarterGui = game:GetService((function()
-        local a={1116,1545,1298,1519,1545,1350,1519,960,1558,1402};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)())
-
-local _xw7qzpegi = function()
-    local Players = game:GetService((function()
-        local a={1077,1441,1298,1610,1350,1519,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)())
-local StarterGui = game:GetService((function()
-        local a={1116,1545,1298,1519,1545,1350,1519,960,1558,1402};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)())
-
 local _folzdbm4t = function()
     --[[
     BloxSense
@@ -3626,14 +3572,7 @@ MovementGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={1168,1298,1441,1428,453,1363,1298,1532,1545,1350,1519,453,1545,1389,1298,1467,453,1467,1480,1519,1454,1298,1441};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Walk faster than normal",
     Callback = function(v) MovementSettings.SpeedEnabled = v end
 })
 
@@ -3674,14 +3613,7 @@ JumpGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={999,1558,1454,1493,453,1298,1467,1610,1545,1402,1454,1350,609,453,1350,1571,1350,1467,453,1454,1402,1337,622,1298,1402,1519};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Jump anytime, even mid-air",
     Callback = function(v) MovementSettings.InfiniteJump = v end
 })
 
@@ -3695,14 +3627,7 @@ JumpGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={1064,1571,1350,1519,1519,1402,1337,1350,453,1415,1558,1454,1493,453,1389,1350,1402,1376,1389,1545};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Override jump height",
     Callback = function(v) MovementSettings.JumpEnabled = v end
 })
 
@@ -3743,14 +3668,7 @@ FlyGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={947,1441,1610,453,1363,1519,1350,1350,1441,1610,453,1298,1519,1480,1558,1467,1337,453,1545,1389,1350,453,1454,1298,1493};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Fly freely around the map",
     Callback = function(v) MovementSettings.FlyEnabled = v end
 })
 
@@ -3766,14 +3684,7 @@ FlyGroup:AddSlider({
     Min = 10,
     Max = 200,
     Default = 50,
-    Suffix = (function()
-        local a={453,1532,1545,1558,1337,1532,648,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Suffix = " studs/s",
     Callback = function(v) MovementSettings.FlySpeed = v end
 })
 
@@ -3828,14 +3739,7 @@ MiscMoveGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={1168,1298,1441,1428,453,1545,1389,1519,1480,1558,1376,1389,453,1584,1298,1441,1441,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Walk through walls",
     Callback = function(v) MovementSettings.NoclipEnabled = v end
 })
 
@@ -3849,14 +3753,7 @@ MiscMoveGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={1077,1519,1350,1571,1350,1467,1545,453,1363,1298,1441,1441,1402,1467,1376,453,1480,1363,1363,453,1350,1337,1376,1350,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Prevent falling off edges",
     Callback = function(v) MovementSettings.AntiFall = v end
 })
 
@@ -3870,14 +3767,7 @@ UserInputService.JumpRequest:Connect(function()
     if MovementSettings.InfiniteJump then
         local char = LocalPlayer.Character
         if char then
-            local humanoid = char:FindFirstChildOfClass((function()
-        local a={973,1558,1454,1298,1467,1480,1402,1337};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)())
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
             if humanoid then
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             end
@@ -4019,14 +3909,7 @@ SilentGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={895,1558,1441,1441,1350,1545,1532,453,1376,1480,453,1545,1480,453,1545,1298,1519,1376,1350,1545,453,1584,1402,1545,1389,1480,1558,1545,453,1298,1402,1454,1402,1467,1376};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Bullets go to target without aiming",
     Callback = function(v) CombatSettings.SilentAim = v end
 })
 
@@ -4181,14 +4064,7 @@ CrosshairGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={921,1519,1298,1584,453,1324,1519,1480,1532,1532,1389,1298,1402,1519,453,1480,1467,453,1532,1324,1519,1350,1350,1467};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Draw crosshair on screen",
     Callback = function(v) PlayerSettings.CrosshairEnabled = v end
 })
 
@@ -4242,14 +4118,7 @@ FOVGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={908,1389,1298,1467,1376,1350,453,1324,1298,1454,1350,1519,1298,453,1363,1402,1350,1441,1337,453,1480,1363,453,1571,1402,1350,1584};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Change camera field of view",
     Callback = function(v) PlayerSettings.FOVChanger = v end
 })
 
@@ -4363,14 +4232,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- Anti AFK Logic
-local VirtualUser = game:GetService((function()
-        local a={1155,1402,1519,1545,1558,1298,1441,1142,1532,1350,1519};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)())
+local VirtualUser = game:GetService("VirtualUser")
 LocalPlayer.Idled:Connect(function()
     if PlayerSettings.AntiAFK then
         VirtualUser:CaptureController()
@@ -4418,14 +4280,7 @@ LightingGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={1103,1350,1454,1480,1571,1350,453,1298,1441,1441,453,1532,1389,1298,1337,1480,1584,1532,453,1298,1467,1337,453,1337,1298,1519,1428,1467,1350,1532,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Remove all shadows and darkness",
     Callback = function(v) WorldSettings.Fullbright = v end
 })
 
@@ -4439,14 +4294,7 @@ LightingGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={1025,1480,1324,1428,453,1324,1441,1480,1324,1428,453,1545,1402,1454,1350,453,1545,1480,453,1532,1493,1350,1324,1402,1363,1402,1324,453,1571,1298,1441,1558,1350};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Lock clock time to specific value",
     Callback = function(v) WorldSettings.TimeLock = v end
 })
 
@@ -4463,14 +4311,7 @@ LightingGroup:AddSlider({
     Max = 24,
     Default = 14,
     Increment = 0.5,
-    Suffix = (function()
-        local a={453,1389,1480,1558,1519,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Suffix = " hours",
     Callback = function(v) WorldSettings.TimeValue = v end
 })
 
@@ -4484,14 +4325,7 @@ LightingGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={1103,1350,1454,1480,1571,1350,453,1337,1402,1532,1545,1298,1467,1324,1350,453,1363,1480,1376};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Remove distance fog",
     Callback = function(v) WorldSettings.NoFog = v end
 })
 
@@ -4505,14 +4339,7 @@ LightingGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={1064,1571,1350,1519,1519,1402,1337,1350,453,1298,1454,1311,1402,1350,1467,1545,453,1441,1402,1376,1389,1545,1402,1467,1376};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Override ambient lighting",
     Callback = function(v) WorldSettings.CustomAmbient = v end
 })
 
@@ -4704,14 +4531,7 @@ Page:Groupbox("Auto Fire(function()
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={921,1480,1467,544,1545,453,1298,1402,1454,453,1298,1545,453,1545,1350,1298,1454,1454,1298,1545,1350,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Don't aim at teammates",
     Callback = function(v) Aimbot.TeamCheck = v end
 })
 
@@ -4726,14 +4546,7 @@ EspSettingsGroup:AddToggle({
         return b;
     end)(),
     Default = false,
-    Description = (function()
-        local a={921,1480,1467,544,1545,453,1532,1389,1480,1584,453,934,1116,1077,453,1363,1480,1519,453,1545,1350,1298,1454,1454,1298,1545,1350,1532};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Don't show ESP for teammates",
     Callback = function(V) ESP_Settings.TeamCheck = V end
 })
 
@@ -4845,14 +4658,7 @@ EspSettingsGroup:AddToggle({
         return b;
     end)(),
     Default = true,
-    Description = (function()
-        local a={960,1519,1350,1350,1467,453,1545,1480,453,1519,1350,1337,453,1311,1298,1532,1350,1337,453,1480,1467,453,1389,1350,1298,1441,1545,1389};
-        local b='';
-        for i=1,#a do 
-            b=b..string.char((a[i]-37)/13);
-        end;
-        return b;
-    end)(),
+    Description = "Green to red based on health",
     Callback = function(V) ESP_Settings.HealthBar.Gradient = V end
 })
 
@@ -5648,9 +5454,3 @@ Library:Notify("BloxSense(function()
     end)()All systems loaded!", 2)
 end;
 _folzdbm4t();
-end;
-_xw7qzpegi();
-end;
-_11esn023w();
-end;
-_ejp9lfp72();
