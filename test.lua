@@ -1,5 +1,5 @@
 --[[
-    DINAS
+    BloxSense
 ]]
 
 local LibraryUrl = "https://raw.githubusercontent.com/Vovabro46/trash/refs/heads/main/Test.lua"
@@ -406,7 +406,7 @@ Players.PlayerRemoving:Connect(RemoveESP)
 for _, Plr in ipairs(Players:GetPlayers()) do if Plr ~= LocalPlayer then CreateESP(Plr) end end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "DINAS_FOV"
+ScreenGui.Name = "BloxSense_FOV"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.DisplayOrder = 9999
@@ -523,6 +523,7 @@ local function GetTarget()
     -- Check all players first
     for _, plr in Players:GetPlayers() do
         if plr == LocalPlayer then continue end
+        if not plr.Character then continue end  -- Skip if no character
         local target = checkModel(plr.Character, true)
         if target and target.Score < bestScore then
             bestScore = target.Score
@@ -642,8 +643,8 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-Library:Watermark("DINAS PROJECT | V 1.0")
-local Window = Library:Window("DINAS PROJECT")
+Library:Watermark("BloxSense Release")
+local Window = Library:Window("BloxSense PROJECT")
 
 Window:Section("Main")
 
