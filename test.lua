@@ -814,7 +814,12 @@ local MiscPage = MiscTab:SubTab("Main")
 local MiscSettings = {
     HitNotif = false,
     KillNotif = false,
-    ShowDamage = true
+    ShowDamage = true,
+    AntiAim = false,
+    AntiAimYaw = "Random",
+    AntiAim360 = false,
+    ThirdPerson = false,
+    ThirdPersonDistance = 10
 }
 
 local MiscGroup = MiscPage:Groupbox("Notifications", "Left")
