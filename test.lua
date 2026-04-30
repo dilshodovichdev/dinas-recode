@@ -567,6 +567,42 @@ local SmoothFunctions = {
 
 local lastAutoFire = 0
 
+-- Mobile aim button support
+local mobileAiming = false
+if isTouchDevice then
+    local mobileGui = Instance.new("ScreenGui")
+    mobileGui.Name = "MobileAim"
+    mobileGui.Parent = CoreGui
+    
+    local aimButton = Instance.new("TextButton")
+    aimButton.Size = UDim2.new(0, 80, 0, 80)
+    aimButton.Position = UDim2.new(0.85, 0, 0.7, 0)
+    aimButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    aimButton.Text = "AIM"
+    aimButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    aimButton.TextSize = 20
+    aimButton.BorderSizePixel = 0
+    aimButton.Parent = mobileGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.5, 0)
+    corner.Parent = aimButton
+    
+    aimButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            mobileAiming = true
+            aimButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+        end
+    end)
+    
+    aimButton.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            mobileAiming = false
+            aimButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        end
+    end)
+end
+
 RunService.Heartbeat:Connect(function()
     UpdateFOV()
     
@@ -958,8 +994,13 @@ local function startTriggerbot()
         if not humanoid or humanoid.Health <= 0 then return end
         
         local targetPlayer = Players:GetPlayerFromCharacter(character)
-        if not targetPlayer then return end
-        if targetPlayer == LocalPlayer then return end
+        
+        -- Allow NPCs (no player attached) or other players
+        if targetPlayer then
+            if targetPlayer == LocalPlayer then return end
+            if TriggerbotSettings.TeamCheck and targetPlayer.Team == LocalPlayer.Team then return end
+        end
+        -- If no targetPlayer, it's an NPC - continue with shooting
         
         -- Hit chance check
         if math.random(1, 100) > TriggerbotSettings.HitChance then return end
