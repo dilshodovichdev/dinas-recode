@@ -242,8 +242,8 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- NPC ESP System
-local NPC_Cache = {}
 local NPC_ESPObjects = {}
+local NPC_List = {}
 
 local function CreateNPCEsp(model)
     if NPC_ESPObjects[model] then return end
@@ -275,90 +275,127 @@ local function RemoveNPCEsp(model)
     end
 end
 
+-- Cache NPCs periodically instead of every frame
+local lastNPCUpdate = 0
+RunService.Heartbeat:Connect(function()
+    if not ESP_Settings.ShowNPCs then return end
+    
+    local now = tick()
+    if now - lastNPCUpdate < 0.5 then return end -- update every 0.5 seconds
+    lastNPCUpdate = now
+    
+    NPC_List = {}
+    for _, model in ipairs(Workspace:GetDescendants()) do
+        if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
+            if not Players:GetPlayerFromCharacter(model) and model ~= LocalPlayer.Character then
+                local humanoid = model:FindFirstChildOfClass("Humanoid")
+                local rootPart = model:FindFirstChild("HumanoidRootPart")
+                if humanoid and rootPart and humanoid.Health > 0 then
+                    table.insert(NPC_List, model)
+                    if not NPC_ESPObjects[model] then
+                        CreateNPCEsp(model)
+                    end
+                end
+            end
+        end
+    end
+end)
+
 -- NPC ESP Render
 RunService.RenderStepped:Connect(function()
-    if not ESP_Settings.Enabled or not ESP_Settings.ShowNPCs then
+    if not ESP_Settings.Enabled then
+        -- Hide all NPC ESP
         for model, Objects in pairs(NPC_ESPObjects) do
             for k, v in pairs(Objects) do
                 if k == "Highlight" and v then v:Destroy()
-                elseif v and v.Remove then v:Remove() end
+                elseif v and v.Remove then v.Visible = false end
             end
         end
-        NPC_ESPObjects = {}
         return
     end
     
-    -- Find all NPCs
-    for _, model in ipairs(Workspace:GetDescendants()) do
-        if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
-            -- Skip player characters
-            if Players:GetPlayerFromCharacter(model) then continue end
-            if model == LocalPlayer.Character then continue end
+    if not ESP_Settings.ShowNPCs then
+        -- Hide NPC ESP only
+        for model, Objects in pairs(NPC_ESPObjects) do
+            for k, v in pairs(Objects) do
+                if k == "Highlight" and v then v:Destroy() Objects[k] = nil
+                elseif v and v.Remove then v.Visible = false end
+            end
+        end
+        return
+    end
+    
+    -- Render cached NPCs
+    for _, model in ipairs(NPC_List) do
+        if not model or not model.Parent then
+            RemoveNPCEsp(model)
+            continue
+        end
+        
+        local humanoid = model:FindFirstChildOfClass("Humanoid")
+        local rootPart = model:FindFirstChild("HumanoidRootPart")
+        
+        if not humanoid or not rootPart or humanoid.Health <= 0 then
+            RemoveNPCEsp(model)
+            continue
+        end
+        
+        if not NPC_ESPObjects[model] then
+            CreateNPCEsp(model)
+        end
+        
+        local Objects = NPC_ESPObjects[model]
+        local HRP_Pos, OnScreen = Camera:WorldToViewportPoint(rootPart.Position)
+        local playerPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local Dist = playerPos and (playerPos.Position - rootPart.Position).Magnitude or 0
+        
+        if ESP_Settings.Chams.Enabled then
+            if not Objects.Highlight or Objects.Highlight.Parent ~= model then
+                if Objects.Highlight then Objects.Highlight:Destroy() end
+                local HL = Instance.new("Highlight")
+                HL.Parent = model; HL.Adornee = model; HL.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                Objects.Highlight = HL
+            end
+            local HL = Objects.Highlight
+            HL.FillColor = Color3.fromRGB(255, 165, 0) -- Orange for NPCs
+            HL.OutlineColor = ESP_Settings.Chams.OutlineColor
+            HL.FillTransparency = ESP_Settings.Chams.FillTransparency
+            HL.OutlineTransparency = ESP_Settings.Chams.OutlineTransparency
+            HL.Enabled = true
+        else
+            if Objects.Highlight then Objects.Highlight:Destroy() Objects.Highlight = nil end
+        end
+        
+        if OnScreen and Dist <= ESP_Settings.LimitDistance then
+            local ScaleFactor = 1 / (HRP_Pos.Z * math.tan(math.rad(Camera.FieldOfView * 0.5)) * 2) * 1000
+            local Width, Height = math.floor(4 * ScaleFactor), math.floor(6 * ScaleFactor)
+            local BoxPos = Vector2.new(math.floor(HRP_Pos.X - Width * 0.5), math.floor(HRP_Pos.Y - Height * 0.5))
             
-            local humanoid = model:FindFirstChildOfClass("Humanoid")
-            local rootPart = model:FindFirstChild("HumanoidRootPart")
+            if ESP_Settings.Box.Enabled then
+                Objects.Box.Size = Vector2.new(Width, Height); Objects.Box.Position = BoxPos; Objects.Box.Color = Color3.fromRGB(255, 165, 0); Objects.Box.Visible = true
+                Objects.BoxOutline.Size = Vector2.new(Width, Height); Objects.BoxOutline.Position = BoxPos; Objects.BoxOutline.Visible = true
+            else Objects.Box.Visible = false; Objects.BoxOutline.Visible = false end
             
-            if humanoid and rootPart and humanoid.Health > 0 then
-                if not NPC_ESPObjects[model] then
-                    CreateNPCEsp(model)
-                end
-                
-                local Objects = NPC_ESPObjects[model]
-                local HRP_Pos, OnScreen = Camera:WorldToViewportPoint(rootPart.Position)
-                local playerPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                local Dist = playerPos and (playerPos.Position - rootPart.Position).Magnitude or 0
-                
-                if ESP_Settings.Chams.Enabled then
-                    if not Objects.Highlight or Objects.Highlight.Parent ~= model then
-                        if Objects.Highlight then Objects.Highlight:Destroy() end
-                        local HL = Instance.new("Highlight")
-                        HL.Parent = model; HL.Adornee = model; HL.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                        Objects.Highlight = HL
-                    end
-                    local HL = Objects.Highlight
-                    HL.FillColor = Color3.fromRGB(255, 165, 0) -- Orange for NPCs
-                    HL.OutlineColor = ESP_Settings.Chams.OutlineColor
-                    HL.FillTransparency = ESP_Settings.Chams.FillTransparency
-                    HL.OutlineTransparency = ESP_Settings.Chams.OutlineTransparency
-                    HL.Enabled = true
-                else
-                    if Objects.Highlight then Objects.Highlight:Destroy() Objects.Highlight = nil end
-                end
-                
-                if OnScreen and Dist <= ESP_Settings.LimitDistance then
-                    local ScaleFactor = 1 / (HRP_Pos.Z * math.tan(math.rad(Camera.FieldOfView * 0.5)) * 2) * 1000
-                    local Width, Height = math.floor(4 * ScaleFactor), math.floor(6 * ScaleFactor)
-                    local BoxPos = Vector2.new(math.floor(HRP_Pos.X - Width * 0.5), math.floor(HRP_Pos.Y - Height * 0.5))
-                    
-                    if ESP_Settings.Box.Enabled then
-                        Objects.Box.Size = Vector2.new(Width, Height); Objects.Box.Position = BoxPos; Objects.Box.Color = Color3.fromRGB(255, 165, 0); Objects.Box.Visible = true
-                        Objects.BoxOutline.Size = Vector2.new(Width, Height); Objects.BoxOutline.Position = BoxPos; Objects.BoxOutline.Visible = true
-                    else Objects.Box.Visible = false; Objects.BoxOutline.Visible = false end
-                    
-                    if ESP_Settings.BoxFill.Enabled and ESP_Settings.Box.Enabled then
-                        Objects.BoxFill.Size = Vector2.new(Width, Height); Objects.BoxFill.Position = BoxPos; Objects.BoxFill.Color = Color3.fromRGB(255, 165, 0); Objects.BoxFill.Transparency = ESP_Settings.BoxFill.Transparency; Objects.BoxFill.Visible = true
-                    else Objects.BoxFill.Visible = false end
-                    
-                    if ESP_Settings.Name.Enabled then
-                        Objects.Name.Position = Vector2.new(BoxPos.X + Width / 2, BoxPos.Y - Objects.Name.TextBounds.Y - 2); Objects.Name.Color = Color3.fromRGB(255, 165, 0); Objects.Name.Visible = true
-                    else Objects.Name.Visible = false end
-                    
-                    if ESP_Settings.Distance.Enabled then
-                        Objects.Distance.Text = math.floor(Dist) .. "m"; Objects.Distance.Position = Vector2.new(BoxPos.X + Width / 2, BoxPos.Y + Height + 2); Objects.Distance.Color = Color3.fromRGB(255, 165, 0); Objects.Distance.Visible = true
-                    else Objects.Distance.Visible = false end
-                    
-                    if ESP_Settings.HealthBar.Enabled then
-                        local BarWidth = 2; local HealthY = Height * (humanoid.Health / humanoid.MaxHealth)
-                        Objects.HealthBarOutline.Size = Vector2.new(BarWidth + 2, Height + 2); Objects.HealthBarOutline.Position = Vector2.new(BoxPos.X - BarWidth - 6, BoxPos.Y - 1); Objects.HealthBarOutline.Visible = true
-                        Objects.HealthBar.Size = Vector2.new(BarWidth, HealthY); Objects.HealthBar.Position = Vector2.new(BoxPos.X - BarWidth - 5, BoxPos.Y + (Height - HealthY)); Objects.HealthBar.Color = Color3.fromHSV((humanoid.Health / humanoid.MaxHealth) * 0.3, 1, 1); Objects.HealthBar.Visible = true
-                    else Objects.HealthBar.Visible = false; Objects.HealthBarOutline.Visible = false end
-                else
-                    for k, v in pairs(Objects) do 
-                        if typeof(v) ~= "Instance" and v.Remove then v.Visible = false end 
-                    end
-                end
-            else
-                RemoveNPCEsp(model)
+            if ESP_Settings.BoxFill.Enabled and ESP_Settings.Box.Enabled then
+                Objects.BoxFill.Size = Vector2.new(Width, Height); Objects.BoxFill.Position = BoxPos; Objects.BoxFill.Color = Color3.fromRGB(255, 165, 0); Objects.BoxFill.Transparency = ESP_Settings.BoxFill.Transparency; Objects.BoxFill.Visible = true
+            else Objects.BoxFill.Visible = false end
+            
+            if ESP_Settings.Name.Enabled then
+                Objects.Name.Position = Vector2.new(BoxPos.X + Width / 2, BoxPos.Y - Objects.Name.TextBounds.Y - 2); Objects.Name.Color = Color3.fromRGB(255, 165, 0); Objects.Name.Visible = true
+            else Objects.Name.Visible = false end
+            
+            if ESP_Settings.Distance.Enabled then
+                Objects.Distance.Text = math.floor(Dist) .. "m"; Objects.Distance.Position = Vector2.new(BoxPos.X + Width / 2, BoxPos.Y + Height + 2); Objects.Distance.Color = Color3.fromRGB(255, 165, 0); Objects.Distance.Visible = true
+            else Objects.Distance.Visible = false end
+            
+            if ESP_Settings.HealthBar.Enabled then
+                local BarWidth = 2; local HealthY = Height * (humanoid.Health / humanoid.MaxHealth)
+                Objects.HealthBarOutline.Size = Vector2.new(BarWidth + 2, Height + 2); Objects.HealthBarOutline.Position = Vector2.new(BoxPos.X - BarWidth - 6, BoxPos.Y - 1); Objects.HealthBarOutline.Visible = true
+                Objects.HealthBar.Size = Vector2.new(BarWidth, HealthY); Objects.HealthBar.Position = Vector2.new(BoxPos.X - BarWidth - 5, BoxPos.Y + (Height - HealthY)); Objects.HealthBar.Color = Color3.fromHSV((humanoid.Health / humanoid.MaxHealth) * 0.3, 1, 1); Objects.HealthBar.Visible = true
+            else Objects.HealthBar.Visible = false; Objects.HealthBarOutline.Visible = false end
+        else
+            for k, v in pairs(Objects) do 
+                if typeof(v) ~= "Instance" and v.Remove then v.Visible = false end 
             end
         end
     end
